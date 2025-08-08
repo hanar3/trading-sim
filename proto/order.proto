@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package order;
+
+enum Side {
+  BUY = 0;
+  SELL = 1;
+}
+
+message Order {
+  uint64 quantity = 1;
+  uint64 price = 2;
+  Side side = 3;
+}

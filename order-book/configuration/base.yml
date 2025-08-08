@@ -1,0 +1,14 @@
+application:
+  base_currency:
+    name: BTC
+    scaling_factor: 8
+  quote_currency:
+    name: USD
+    scaling_factor: 2
+amqp:
+  host: "127.0.0.1"
+  port: 5672
+  username: admin
+  password: pass
+  channel: orders
+  consumer_tag: order-book-consumer

@@ -7,6 +7,13 @@ edition = "2024"
 name="order_book"
 path="src/lib.rs"
 
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name="orderbook_benchmark"
+harness = false
+
 [dependencies]
 config = "0.11"
 env_logger = "0.11.8"

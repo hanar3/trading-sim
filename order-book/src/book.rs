@@ -51,7 +51,6 @@ impl OrderBook {
     pub fn add_limit_order(&mut self, side: Side, price: Price, quantity: Quantity) -> Vec<Trade> {
         let order_id = self.get_next_order_id();
         log::info!("next order id > {}", order_id);
-        std::thread::sleep(Duration::from_secs(1));
         let mut order = Order {
             id: order_id,
             side,

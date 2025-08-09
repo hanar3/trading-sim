@@ -12,11 +12,32 @@ fn setup_book() -> OrderBook {
 }
 
 fn orderbook_benches(c: &mut Criterion) {
+    c.bench_function("add_limit_order_no_match", |bencher| {
+        bencher.iter_batched(
+            || setup_book(),
+            |mut book| {
+                book.add_limit_order(Side::Buy, black_box(9000), black_box(10));
+            },
+            criterion::BatchSize::PerIteration,
+        );
+    });
     c.bench_function("add_limit_order_full_match_one", |bencher| {
-        let mut book = setup_book();
-        bencher.iter(|| {
-            book.add_limit_order(Side::Buy, black_box(10001), black_box(10));
-        });
+        bencher.iter_batched(
+            || setup_book(),
+            |mut book| {
+                book.add_limit_order(Side::Buy, black_box(10001), black_box(10));
+            },
+            criterion::BatchSize::PerIteration,
+        );
+    });
+    c.bench_function("add_limit_order_walk_the_book", |bencher| {
+        bencher.iter_batched(
+            || setup_book(),
+            |mut book| {
+                book.add_limit_order(Side::Buy, black_box(10005), black_box(50));
+            },
+            criterion::BatchSize::PerIteration,
+        );
     });
 }
 

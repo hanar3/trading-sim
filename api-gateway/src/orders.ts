@@ -6,7 +6,7 @@ import { Order } from "./generated/proto/order";
 export const orders = new Elysia({
 	prefix: "orders",
 	name: "Orders"
-}).post('/', async ({ body }) => {
+}).post('/', ({ body }) => {
 	const order = Order.create<Order>({
 		quantity: long.fromInt(body.quantity),
 		price: long.fromInt(body.price),

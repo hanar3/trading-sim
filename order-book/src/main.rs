@@ -1,5 +1,5 @@
 #![allow(unused)]
-mod order_book;
+
 use futures_lite::stream::StreamExt;
 use lapin::{
     self, ConnectionProperties,
@@ -7,8 +7,8 @@ use lapin::{
     types::FieldTable,
 };
 use log;
-use order_book::OrderBook;
-use order_proto::{
+use order_book::{
+    book::OrderBook,
     configuration::get_configuration,
     defs::items::{Order, Side},
 };

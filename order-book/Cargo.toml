@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [lib]
-name="order_proto"
+name="order_book"
 path="src/lib.rs"
 
 [dependencies]

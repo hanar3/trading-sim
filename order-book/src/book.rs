@@ -1,6 +1,9 @@
 #![allow(unused)]
-use order_proto::defs::items::Side;
-use std::collections::{BTreeMap, VecDeque};
+use crate::defs::items::Side;
+use std::{
+    collections::{BTreeMap, VecDeque},
+    time::Duration,
+};
 
 type Price = u64;
 type Quantity = u64;
@@ -29,6 +32,7 @@ pub struct OrderBook {
     next_order_id: OrderId,
 }
 
+// BTC-USD
 impl OrderBook {
     pub fn new() -> Self {
         OrderBook {
@@ -43,9 +47,11 @@ impl OrderBook {
         self.next_order_id += 1;
         id
     }
+
     pub fn add_limit_order(&mut self, side: Side, price: Price, quantity: Quantity) -> Vec<Trade> {
         let order_id = self.get_next_order_id();
         log::info!("next order id > {}", order_id);
+        std::thread::sleep(Duration::from_secs(1));
         let mut order = Order {
             id: order_id,
             side,
@@ -93,6 +99,7 @@ impl OrderBook {
             }
         };
 
+        println!("{:?}", book_to_match.keys());
         let price_levels: Vec<Price> = if is_bid_match {
             book_to_match.keys().rev().cloned().collect()
         } else {

@@ -98,7 +98,6 @@ impl OrderBook {
             }
         };
 
-        println!("{:?}", book_to_match.keys());
         let price_levels: Vec<Price> = if is_bid_match {
             book_to_match.keys().rev().cloned().collect()
         } else {

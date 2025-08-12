@@ -31,6 +31,7 @@ pub struct OrderBook {
     asks: BTreeMap<Price, VecDeque<Order>>,
     next_order_id: OrderId,
     trades_buffer: Vec<Trade>,
+    empty_price_levels_buf: Vec<u64>,
 }
 
 // BTC-USD
@@ -40,6 +41,7 @@ impl OrderBook {
             bids: BTreeMap::new(),
             asks: BTreeMap::new(),
             trades_buffer: Vec::with_capacity(32),
+            empty_price_levels_buf: Vec::with_capacity(4),
             next_order_id: 1,
         }
     }
@@ -81,7 +83,7 @@ impl OrderBook {
     pub fn match_order(&mut self, taker_order: &mut Order) {
         log::debug!("matching order # = {}", taker_order.id);
         self.trades_buffer.clear();
-        let mut empty_price_levels = Vec::new();
+        self.empty_price_levels_buf.clear();
 
         let (book_to_match, is_bid_match) = match taker_order.side {
             Side::Buy => {
@@ -161,7 +163,7 @@ impl OrderBook {
             }
 
             if price_level_queue.is_empty() {
-                empty_price_levels.push(price);
+                self.empty_price_levels_buf.push(price);
             }
         }
         log::debug!(
@@ -169,8 +171,8 @@ impl OrderBook {
             taker_order.id
         );
 
-        for price in empty_price_levels {
-            book_to_match.remove(&price);
+        for price in &self.empty_price_levels_buf {
+            book_to_match.remove(price);
         }
     }
 

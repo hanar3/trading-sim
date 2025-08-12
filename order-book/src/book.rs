@@ -30,6 +30,7 @@ pub struct OrderBook {
     bids: BTreeMap<Price, VecDeque<Order>>,
     asks: BTreeMap<Price, VecDeque<Order>>,
     next_order_id: OrderId,
+    trades_buffer: Vec<Trade>,
 }
 
 // BTC-USD
@@ -38,6 +39,7 @@ impl OrderBook {
         OrderBook {
             bids: BTreeMap::new(),
             asks: BTreeMap::new(),
+            trades_buffer: Vec::with_capacity(32),
             next_order_id: 1,
         }
     }
@@ -48,7 +50,7 @@ impl OrderBook {
         id
     }
 
-    pub fn add_limit_order(&mut self, side: Side, price: Price, quantity: Quantity) -> Vec<Trade> {
+    pub fn add_limit_order(&mut self, side: Side, price: Price, quantity: Quantity) -> &Vec<Trade> {
         let order_id = self.get_next_order_id();
         log::debug!("next order id > {}", order_id);
         let mut order = Order {
@@ -58,7 +60,7 @@ impl OrderBook {
             quantity,
         };
 
-        let trades = self.match_order(&mut order);
+        self.match_order(&mut order);
 
         if order.quantity > 0 {
             let book_side = match order.side {
@@ -73,12 +75,12 @@ impl OrderBook {
                 .push_back(order);
         }
 
-        trades
+        &self.trades_buffer
     }
 
-    pub fn match_order(&mut self, taker_order: &mut Order) -> Vec<Trade> {
+    pub fn match_order(&mut self, taker_order: &mut Order) {
         log::debug!("matching order # = {}", taker_order.id);
-        let mut trades = Vec::new();
+        self.trades_buffer.clear();
         let mut empty_price_levels = Vec::new();
 
         let (book_to_match, is_bid_match) = match taker_order.side {
@@ -143,7 +145,7 @@ impl OrderBook {
                     maker_order.id
                 );
 
-                trades.push(Trade {
+                self.trades_buffer.push(Trade {
                     taker_order_id: taker_order.id,
                     maker_order_id: maker_order.id,
                     quantity: trade_quantity,
@@ -170,13 +172,11 @@ impl OrderBook {
         for price in empty_price_levels {
             book_to_match.remove(&price);
         }
-
-        trades
     }
 
     /// Adds a new market order to the book.
     /// Market orders are filled immediately and are not added to the book.
-    pub fn add_market_order(&mut self, side: Side, quantity: Quantity) -> Vec<Trade> {
+    pub fn add_market_order(&mut self, side: Side, quantity: Quantity) -> &Vec<Trade> {
         let order_id = self.get_next_order_id();
         // A market order doesn't have a price, but we can model it
         // with a dummy price for the struct.
@@ -186,7 +186,8 @@ impl OrderBook {
             price: 0,
             quantity,
         };
-        self.match_order(&mut order)
+        self.match_order(&mut order);
+        &self.trades_buffer
     }
     /// Displays the current state of the order book.
     pub fn display(&self) {

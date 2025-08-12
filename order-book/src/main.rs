@@ -18,7 +18,7 @@ use tracing;
 #[tokio::main]
 async fn main() -> lapin::Result<()> {
     env_logger::Builder::from_default_env()
-        .filter_level(log::LevelFilter::Info)
+        .filter_level(log::LevelFilter::Error)
         .init();
 
     let config = get_configuration().expect("Failed to read config file");
@@ -56,7 +56,7 @@ async fn main() -> lapin::Result<()> {
             delivery.ack(BasicAckOptions::default()).await;
             if let Ok(msg) = prost::Message::decode(&delivery.data[..]) {
                 let order = Order::from(msg);
-                log::info!("new order received from queue > {:?}", order);
+                log::debug!("new order received from queue > {:?}", order);
                 book.add_limit_order(order.side(), order.price, order.quantity);
             }
         }

@@ -50,7 +50,7 @@ impl OrderBook {
 
     pub fn add_limit_order(&mut self, side: Side, price: Price, quantity: Quantity) -> Vec<Trade> {
         let order_id = self.get_next_order_id();
-        log::info!("next order id > {}", order_id);
+        log::debug!("next order id > {}", order_id);
         let mut order = Order {
             id: order_id,
             side,
@@ -77,20 +77,20 @@ impl OrderBook {
     }
 
     pub fn match_order(&mut self, taker_order: &mut Order) -> Vec<Trade> {
-        log::info!("matching order # = {}", taker_order.id);
+        log::debug!("matching order # = {}", taker_order.id);
         let mut trades = Vec::new();
         let mut empty_price_levels = Vec::new();
 
         let (book_to_match, is_bid_match) = match taker_order.side {
             Side::Buy => {
-                log::info!(
+                log::debug!(
                     "side is buy, matching order # {} against asks",
                     taker_order.id
                 );
                 (&mut self.asks, false)
             }
             Side::Sell => {
-                log::info!(
+                log::debug!(
                     "side is sell, matching order # {} against bids",
                     taker_order.id
                 );
@@ -105,7 +105,7 @@ impl OrderBook {
         };
 
         for price in price_levels {
-            log::info!(
+            log::debug!(
                 "attempting to match against price level: [{}] for order # {}, side: {}",
                 price,
                 taker_order.id,
@@ -113,17 +113,17 @@ impl OrderBook {
             );
 
             if taker_order.quantity == 0 {
-                log::info!("order filled completely: {}", taker_order.id);
+                log::debug!("order filled completely: {}", taker_order.id);
                 break; // Order fully filled
             }
 
-            log::info!("checking if it's impossible to fill order given current book");
+            log::debug!("checking if it's impossible to fill order given current book");
             match taker_order.side {
                 Side::Buy if taker_order.price < price => break,
                 Side::Sell if taker_order.price > price => break,
                 _ => (),
             }
-            log::info!(
+            log::debug!(
                 "possible to fill order # {} at price level {}",
                 taker_order.id,
                 taker_order.price
@@ -136,7 +136,7 @@ impl OrderBook {
                 }
 
                 let trade_quantity = taker_order.quantity.min(maker_order.quantity);
-                log::info!(
+                log::debug!(
                     "filled qty {} for taker_order # {} and maker_order {}",
                     trade_quantity,
                     taker_order.id,
@@ -162,7 +162,7 @@ impl OrderBook {
                 empty_price_levels.push(price);
             }
         }
-        log::info!(
+        log::debug!(
             "no more price levels to go through for order #{}",
             taker_order.id
         );

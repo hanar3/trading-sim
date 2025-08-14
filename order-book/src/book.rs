@@ -1,5 +1,5 @@
 #![allow(unused)]
-use crate::{book, defs::items::Side};
+use crate::messages::trading::Side;
 use std::{
     collections::{BTreeMap, VecDeque},
     time::Duration,
@@ -19,10 +19,10 @@ pub struct Order {
 
 #[derive(Debug, Clone)]
 pub struct Trade {
-    taker_order_id: OrderId,
-    maker_order_id: OrderId,
-    quantity: Quantity,
-    price: Price,
+    pub taker_order_id: OrderId,
+    pub maker_order_id: OrderId,
+    pub quantity: Quantity,
+    pub price: Price,
 }
 
 #[derive(Debug, Clone)]
@@ -50,7 +50,12 @@ impl OrderBook {
         id
     }
 
-    pub fn add_limit_order(&mut self, side: Side, price: Price, quantity: Quantity) -> &Vec<Trade> {
+    pub fn add_limit_order(
+        &mut self,
+        side: Side,
+        price: Price,
+        quantity: Quantity,
+    ) -> (u64, &Vec<Trade>) {
         let order_id = self.get_next_order_id();
         log::debug!("next order id > {}", order_id);
         let mut order = Order {
@@ -66,6 +71,7 @@ impl OrderBook {
             let book_side = match order.side {
                 Side::Buy => &mut self.bids,
                 Side::Sell => &mut self.asks,
+                Side::Unspecified => panic!("no side unspecied allowed"),
             };
 
             // Create a new price level
@@ -75,7 +81,7 @@ impl OrderBook {
                 .push_back(order);
         }
 
-        &self.trades_buffer
+        (order_id, &self.trades_buffer)
     }
 
     pub fn match_order(&mut self, taker_order: &mut Order) {
@@ -83,6 +89,7 @@ impl OrderBook {
         self.trades_buffer.clear();
 
         let book_to_match = match taker_order.side {
+            Side::Unspecified => panic!("no side unspecied allowed"),
             Side::Buy => {
                 log::debug!(
                     "side is buy, matching order # {} against asks",
@@ -104,6 +111,7 @@ impl OrderBook {
                 break;
             }
             let best_price = match taker_order.side {
+                Side::Unspecified => panic!("no side unspecied allowed"),
                 Side::Buy => book_to_match.keys().next().cloned(),
                 Side::Sell => book_to_match.keys().next_back().cloned(),
             };
@@ -116,6 +124,7 @@ impl OrderBook {
             match taker_order.side {
                 Side::Buy if taker_order.price < best_price => break,
                 Side::Sell if taker_order.price > best_price => break,
+                Side::Unspecified => panic!("no side unspecied allowed"),
                 _ => (),
             };
 

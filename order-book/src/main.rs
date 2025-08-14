@@ -8,58 +8,57 @@ use lapin::{
 };
 use log;
 use order_book::{
-    book::OrderBook,
-    configuration::get_configuration,
-    defs::items::{Order, Side},
+    self, book::OrderBook, command_queue_loop, configuration::get_configuration,
+    matching_engine::matching_engine_loop, messages::trading::wire_message::Payload,
 };
-use std::collections::{BTreeMap, VecDeque};
+use std::{
+    collections::{BTreeMap, VecDeque},
+    sync::mpsc::{Receiver, Sender},
+};
+
 use tracing;
+
+fn event_distributor_loop(event_rx: Receiver<Payload>, consumers: Vec<Sender<Payload>>) {
+    for event in event_rx {
+        log::info!(
+            "broadcasting event: {:?} to {} consumers",
+            event,
+            consumers.len()
+        );
+        for consumer_tx in &consumers {
+            consumer_tx.send(event.clone()).unwrap();
+        }
+    }
+}
 
 #[tokio::main]
 async fn main() -> lapin::Result<()> {
     env_logger::Builder::from_default_env()
-        .filter_level(log::LevelFilter::Error)
+        .filter_level(log::LevelFilter::Info)
         .init();
 
     let config = get_configuration().expect("Failed to read config file");
-    let mut book = OrderBook::new();
 
-    let conn = lapin::Connection::connect(
-        config.amqp.connection_string().as_str(),
-        ConnectionProperties::default(),
-    )
-    .await?;
-    log::info!("Conncted to amqp: {}", config.amqp.host);
+    let config = get_configuration().expect("Failed to read config file");
 
-    let channel = conn.create_channel().await?;
+    let (command_tx, command_rx) = std::sync::mpsc::channel::<Payload>();
+    let (event_tx, event_rx) = std::sync::mpsc::channel::<Payload>();
 
-    log::info!("Created amqp channel");
-    let mut consumer = channel
-        .basic_consume(
-            &config.amqp.channel,
-            &config.amqp.consumer_tag,
-            BasicConsumeOptions {
-                no_ack: false,
-                ..Default::default()
-            },
-            FieldTable::default(),
-        )
-        .await?;
-    log::info!(
-        "will consume. channel = {}, consumer_tag = {}",
-        config.amqp.channel,
-        config.amqp.consumer_tag
-    );
+    let command_queue_handle = tokio::spawn(async move {
+        log::info!("input queue loop initialized");
+        command_queue_loop::queue_loop(command_tx, config.amqp).await;
+    });
 
-    while let Some(data) = consumer.next().await {
-        if let Ok(delivery) = data {
-            delivery.ack(BasicAckOptions::default()).await;
-            if let Ok(msg) = prost::Message::decode(&delivery.data[..]) {
-                let order = Order::from(msg);
-                log::debug!("new order received from queue > {:?}", order);
-                book.add_limit_order(order.side(), order.price, order.quantity);
-            }
-        }
-    }
+    let engine_handle = std::thread::spawn(move || {
+        log::info!("starting matching engine");
+        matching_engine_loop(command_rx, event_tx);
+    });
+
+    let distributor_handle = std::thread::spawn(move || {
+        event_distributor_loop(event_rx, vec![]);
+    });
+
+    loop {}
+
     Ok(())
 }

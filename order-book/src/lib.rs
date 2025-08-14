@@ -1,8 +1,5 @@
-pub mod defs {
-    pub mod items {
-        include!(concat!(env!("OUT_DIR"), "/order.rs"));
-    }
-}
-
 pub mod book;
+pub mod command_queue_loop;
 pub mod configuration;
+pub mod matching_engine;
+pub mod messages;

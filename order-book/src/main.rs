@@ -39,8 +39,6 @@ async fn main() -> lapin::Result<()> {
 
     let config = get_configuration().expect("Failed to read config file");
 
-    let config = get_configuration().expect("Failed to read config file");
-
     let (command_tx, command_rx) = std::sync::mpsc::channel::<Payload>();
     let (event_tx, event_rx) = std::sync::mpsc::channel::<Payload>();
 
@@ -58,7 +56,7 @@ async fn main() -> lapin::Result<()> {
         event_distributor_loop(event_rx, vec![]);
     });
 
-    loop {}
+    // loop {}
 
     Ok(())
 }

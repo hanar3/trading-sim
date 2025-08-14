@@ -1,6 +1,6 @@
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use order_book::book::OrderBook;
-use order_book::defs::items::Side;
+use order_book::messages::trading::Side;
 
 fn setup_book() -> OrderBook {
     let mut book = OrderBook::new();
@@ -21,6 +21,7 @@ fn orderbook_benches(c: &mut Criterion) {
             criterion::BatchSize::PerIteration,
         );
     });
+
     c.bench_function("add_limit_order_full_match_one", |bencher| {
         bencher.iter_batched(
             || setup_book(),
@@ -30,6 +31,7 @@ fn orderbook_benches(c: &mut Criterion) {
             criterion::BatchSize::PerIteration,
         );
     });
+
     c.bench_function("add_limit_order_walk_the_book", |bencher| {
         bencher.iter_batched(
             || setup_book(),

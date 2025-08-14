@@ -1,5 +1,5 @@
 use order_book::book::OrderBook;
-use order_book::defs::items::Side;
+use order_book::messages::trading::Side;
 
 fn setup_book() -> OrderBook {
     let mut book = OrderBook::new();
@@ -13,20 +13,20 @@ fn setup_book() -> OrderBook {
 #[test]
 fn add_limit_order_no_match() {
     let mut book = setup_book();
-    let trades = book.add_limit_order(Side::Buy, 9000, 10);
+    let (_, trades) = book.add_limit_order(Side::Buy, 9000, 10);
     assert_eq!(trades.len(), 0);
 }
 
 #[test]
 fn add_limit_order_full_match_one() {
     let mut book = setup_book();
-    let trades = book.add_limit_order(Side::Buy, 10001, 10);
+    let (_, trades) = book.add_limit_order(Side::Buy, 10001, 10);
     assert_eq!(trades.len(), 1);
 }
 
 #[test]
 fn add_limit_order_walk_the_book() {
     let mut book = setup_book();
-    let trades = book.add_limit_order(Side::Buy, 10005, 50);
+    let (_, trades) = book.add_limit_order(Side::Buy, 10005, 50);
     assert_eq!(trades.len(), 5);
 }

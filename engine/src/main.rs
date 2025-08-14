@@ -1,5 +1,9 @@
 #![allow(unused)]
 
+use engine::{
+    self, book::OrderBook, command_queue_loop, configuration::get_configuration,
+    matching_engine::matching_engine_loop, messages::trading::wire_message::Payload,
+};
 use futures_lite::stream::StreamExt;
 use lapin::{
     self, ConnectionProperties,
@@ -7,10 +11,6 @@ use lapin::{
     types::FieldTable,
 };
 use log;
-use order_book::{
-    self, book::OrderBook, command_queue_loop, configuration::get_configuration,
-    matching_engine::matching_engine_loop, messages::trading::wire_message::Payload,
-};
 use std::{
     collections::{BTreeMap, VecDeque},
     sync::mpsc::{Receiver, Sender},

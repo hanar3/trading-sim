@@ -1,10 +1,10 @@
 [package]
-name = "trading-sym"
+name = "engine"
 version = "0.1.0"
 edition = "2024"
 
 [lib]
-name="order_book"
+name="engine"
 path="src/lib.rs"
 
 [dev-dependencies]

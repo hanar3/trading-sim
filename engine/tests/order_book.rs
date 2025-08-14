@@ -1,5 +1,5 @@
-use order_book::book::OrderBook;
-use order_book::messages::trading::Side;
+use engine::book::OrderBook;
+use engine::messages::trading::Side;
 
 fn setup_book() -> OrderBook {
     let mut book = OrderBook::new();

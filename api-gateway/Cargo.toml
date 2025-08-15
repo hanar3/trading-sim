@@ -5,7 +5,7 @@ edition = "2024"
 
 [[bin]]
 path = "src/main.rs"
-name = "apigateway"
+name = "api-gateway"
 
 
 [lib]
@@ -29,3 +29,9 @@ serde-aux = "3"
 unicode-segmentation = "1.10.1"
 claim = "0.5.0"
 validator = "0.16.0"
+prost = "0.14.1"
+env_logger = "0.11.8"
+log = "0.4.27"
+
+[build-dependencies]
+prost-build = "0.14.1"

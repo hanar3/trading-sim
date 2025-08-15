@@ -1,19 +1,24 @@
 #![allow(unused)]
 
 use engine::{
-    self, book::OrderBook, command_queue_loop, configuration::get_configuration,
-    matching_engine::matching_engine_loop, messages::trading::wire_message::Payload,
+    self,
+    book::OrderBook,
+    command_queue_loop,
+    configuration::get_configuration,
+    matching_engine::matching_engine_loop,
+    messages::trading::{WireMessage, wire_message::Payload},
 };
 use futures_lite::stream::StreamExt;
-use lapin::{
-    self, ConnectionProperties,
-    options::{BasicAckOptions, BasicConsumeOptions},
-    types::FieldTable,
-};
+
 use log;
+use prost::Message;
 use std::{
     collections::{BTreeMap, VecDeque},
     sync::mpsc::{Receiver, Sender},
+};
+use tokio::{
+    io::{AsyncReadExt, BufReader},
+    net::{TcpListener, TcpStream},
 };
 
 use tracing;
@@ -31,8 +36,40 @@ fn event_distributor_loop(event_rx: Receiver<Payload>, consumers: Vec<Sender<Pay
     }
 }
 
+async fn handle_connection(stream: TcpStream, command_tx: Sender<Payload>) {
+    let mut reader = BufReader::new(stream);
+    log::info!("new client connected");
+
+    loop {
+        match reader.read_u32().await {
+            Ok(len) => {
+                let mut buf = vec![0; len as usize];
+                if let Err(e) = reader.read_exact(&mut buf).await {
+                    log::error!("failed to read message payload {:?}", e);
+                    break;
+                }
+
+                match WireMessage::decode(buf.as_slice()) {
+                    Ok(msg) => {
+                        let payload = msg.payload.unwrap();
+                        if command_tx.send(payload).is_err() {
+                            log::error!("failed to send to engine");
+                        }
+                    }
+                    Err(e) => {
+                        log::error!("failed to decode WireMessage, {:?}", e);
+                    }
+                }
+            }
+            Err(e) => {
+                log::error!("client disconnected {:?}", e);
+            }
+        }
+    }
+}
+
 #[tokio::main]
-async fn main() -> lapin::Result<()> {
+async fn main() -> std::io::Result<()> {
     env_logger::Builder::from_default_env()
         .filter_level(log::LevelFilter::Info)
         .init();
@@ -41,11 +78,6 @@ async fn main() -> lapin::Result<()> {
 
     let (command_tx, command_rx) = std::sync::mpsc::channel::<Payload>();
     let (event_tx, event_rx) = std::sync::mpsc::channel::<Payload>();
-
-    let command_queue_handle = tokio::spawn(async move {
-        log::info!("input queue loop initialized");
-        command_queue_loop::queue_loop(command_tx, config.amqp).await;
-    });
 
     let engine_handle = std::thread::spawn(move || {
         log::info!("starting matching engine");
@@ -56,7 +88,21 @@ async fn main() -> lapin::Result<()> {
         event_distributor_loop(event_rx, vec![]);
     });
 
-    // loop {}
+    let listener = TcpListener::bind("127.0.0.1:4000").await?;
+    log::info!("I/O LISTENER (Async Main Thread): Listening on 127.0.0.1:4000");
+    loop {
+        // Accept a new connection.
+        let (socket, _addr) = listener.accept().await?;
+
+        // Clone the sender for the new connection handler.
+        let command_tx_clone = command_tx.clone();
+
+        // Spawn a new Tokio task to handle this specific connection.
+        // This allows us to handle thousands of connections concurrently.
+        tokio::spawn(async move {
+            handle_connection(socket, command_tx_clone).await;
+        });
+    }
 
     Ok(())
 }

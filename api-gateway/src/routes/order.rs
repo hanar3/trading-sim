@@ -12,7 +12,7 @@ pub struct PlaceLimitOrderJson {
 
 pub async fn place_limit_order(
     form: web::Json<PlaceLimitOrderJson>,
-    command_tx: web::Data<Sender<WireMessage>>,
+    command_tx: web::Data<tokio::sync::mpsc::Sender<WireMessage>>,
 ) -> HttpResponse {
     let wire_message = WireMessage {
         payload: Some(Payload::PlaceLimitOrder(PlaceLimitOrder {
@@ -23,7 +23,7 @@ pub async fn place_limit_order(
         })),
     };
 
-    match command_tx.send(wire_message) {
+    match command_tx.send(wire_message).await {
         Ok(_) => {
             log::info!("sent wire message to engine: {wire_message:?}");
             return HttpResponse::Ok().finish();

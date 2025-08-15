@@ -3,7 +3,6 @@
 use engine::{
     self,
     book::OrderBook,
-    command_queue_loop,
     configuration::get_configuration,
     matching_engine::matching_engine_loop,
     messages::trading::{WireMessage, wire_message::Payload},
@@ -46,23 +45,23 @@ async fn handle_connection(stream: TcpStream, command_tx: Sender<Payload>) {
                 let mut buf = vec![0; len as usize];
                 if let Err(e) = reader.read_exact(&mut buf).await {
                     log::error!("failed to read message payload {:?}", e);
-                    break;
-                }
-
-                match WireMessage::decode(buf.as_slice()) {
-                    Ok(msg) => {
-                        let payload = msg.payload.unwrap();
-                        if command_tx.send(payload).is_err() {
-                            log::error!("failed to send to engine");
+                } else {
+                    match WireMessage::decode(buf.as_slice()) {
+                        Ok(msg) => {
+                            let payload = msg.payload.unwrap();
+                            if command_tx.send(payload).is_err() {
+                                log::error!("failed to send to engine");
+                            }
                         }
-                    }
-                    Err(e) => {
-                        log::error!("failed to decode WireMessage, {:?}", e);
+                        Err(e) => {
+                            log::error!("failed to decode WireMessage, {:?}", e);
+                        }
                     }
                 }
             }
             Err(e) => {
-                log::error!("client disconnected {:?}", e);
+                log::error!("client disconnected {:?}, closing connection", e);
+                break;
             }
         }
     }
@@ -89,7 +88,7 @@ async fn main() -> std::io::Result<()> {
     });
 
     let listener = TcpListener::bind("127.0.0.1:4000").await?;
-    log::info!("I/O LISTENER (Async Main Thread): Listening on 127.0.0.1:4000");
+    log::info!("started async io listener on main thread");
     loop {
         // Accept a new connection.
         let (socket, _addr) = listener.accept().await?;

@@ -13,23 +13,19 @@ async fn main() -> std::io::Result<()> {
 
     let configuration =
         api_gateway::configuration::get_configuration().expect("Failed to read config file");
-    let (command_tx, command_rx) = std::sync::mpsc::channel::<WireMessage>();
+    let (command_tx, command_rx) = tokio::sync::mpsc::channel::<WireMessage>(10_000);
     let http_server_listener = TcpListener::bind(format!(
         "{}:{}",
         configuration.application.host, configuration.application.port
     ))
     .expect("Failed to bind http tcp listener");
 
-    let matching_engine_listener = TcpStream::connect(format!(
-        "{}:{}",
-        configuration.engine.host, configuration.engine.port
-    ))
-    .await
-    .expect("Failed to engine tcp listener");
-
     tokio::spawn(api_gateway::startup::engine_connection_manager(
         command_rx,
-        matching_engine_listener,
+        format!(
+            "{}:{}",
+            configuration.engine.host, configuration.engine.port
+        ),
     ));
 
     api_gateway::startup::run_http(http_server_listener, command_tx)?.await

@@ -1,7 +1,4 @@
 use std::net::TcpListener;
-use std::sync::mpsc;
-use tokio::io::AsyncWriteExt;
-use tokio::net::TcpStream;
 
 use api_gateway::messages::trading::WireMessage;
 

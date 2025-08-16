@@ -2,7 +2,7 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use crate::{
     book::OrderBook,
-    messages::trading::{OrderAccepted, TradeOccurred, WireMessage, wire_message::Payload},
+    messages::trading::{OrderAccepted, OrderCancelled, TradeOccurred, wire_message::Payload},
 };
 
 pub fn matching_engine_loop(command_rx: Receiver<Payload>, event_tx: Sender<Payload>) {
@@ -37,6 +37,20 @@ pub fn matching_engine_loop(command_rx: Receiver<Payload>, event_tx: Sender<Payl
                         .unwrap(); // TODO: handle the error
                 }
             }
+            Payload::CancelOrder(request) => match book.cancel_order(request.order_id) {
+                Ok(_) => {
+                    event_tx
+                        .send(Payload::OrderCancelled(OrderCancelled {
+                            order_id: request.order_id,
+                        }))
+                        .unwrap();
+                }
+                Err(err) => {
+                    log::error!("failed to cancel order {}: {}", request.order_id, err);
+                    // send an error event upstream?
+                }
+            },
+
             _ => {
                 // This will only handle input messages
             }

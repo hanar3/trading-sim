@@ -18,6 +18,7 @@ pub fn run_http(
         App::new()
             .wrap(TracingLogger::default())
             .route("/orders", web::post().to(order::place_limit_order))
+            .route("/orders", web::delete().to(order::cancel_order))
             .app_data(sender.clone())
     })
     .listen(listener)?

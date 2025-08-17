@@ -1,6 +1,7 @@
 use config;
 use secrecy::{ExposeSecret, SecretBox};
 use serde_aux::field_attributes::deserialize_number_from_string;
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 
 #[derive(serde::Deserialize, Debug)]
 pub struct Settings {
@@ -22,6 +23,14 @@ pub struct AmqpSettings {
 #[derive(serde::Deserialize, Debug)]
 pub struct DatabaseSettings {
     pub file: String,
+}
+
+impl DatabaseSettings {
+    pub fn get_config(&self) -> SqliteConnectOptions {
+        let base_path = std::env::current_dir().expect("Failed to determine the current directory");
+        let db_file = base_path.join(&self.file);
+        return SqliteConnectOptions::default().filename(db_file);
+    }
 }
 
 impl AmqpSettings {

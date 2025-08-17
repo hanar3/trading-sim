@@ -1,3 +1,3 @@
+pub mod amqp_receiver;
 pub mod configuration;
 pub mod messages;
-pub mod queue_loop;

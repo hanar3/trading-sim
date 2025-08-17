@@ -13,7 +13,7 @@ use lapin::{
 use prost::Message;
 use sqlx::SqlitePool;
 
-pub async fn queue_loop(pool: SqlitePool, config: AmqpSettings) -> lapin::Result<()> {
+pub async fn amqp_receiver(pool: SqlitePool, config: AmqpSettings) -> lapin::Result<()> {
     let conn = lapin::Connection::connect(
         config.connection_string().as_str(),
         ConnectionProperties::default(),

@@ -1,5 +1,9 @@
-use crate::{configuration::AmqpSettings, messages::trading::wire_message::Payload};
+use crate::{
+    configuration::AmqpSettings,
+    messages::trading::{WireMessage, wire_message::Payload},
+};
 use lapin::{self, BasicProperties, ConnectionProperties, options::BasicPublishOptions};
+use prost::Message;
 use std::sync::mpsc::Receiver;
 
 pub async fn queue_loop(event_rx: Receiver<Payload>, config: AmqpSettings) -> lapin::Result<()> {
@@ -21,23 +25,27 @@ pub async fn queue_loop(event_rx: Receiver<Payload>, config: AmqpSettings) -> la
     );
 
     let mut buf = Vec::new();
+    let mut wire_message = WireMessage::default();
+
     for event in event_rx {
         log::info!("received event from engine: {:?}", event);
         buf.clear();
-        event.encode(&mut buf);
-        if let Ok(_) = channel
-            .basic_publish(
-                "",
-                &config.channel,
-                BasicPublishOptions::default(),
-                &buf,
-                BasicProperties::default(),
-            )
-            .await
-        {
-            log::info!("published {:?} to queue", event);
-        } else {
-            log::error!("failed to publish {:?} to queue", event);
+        wire_message.payload = Some(event);
+        if let Ok(_) = wire_message.encode(&mut buf) {
+            if let Ok(_) = channel
+                .basic_publish(
+                    "",
+                    &config.channel,
+                    BasicPublishOptions::default(),
+                    &buf,
+                    BasicProperties::default(),
+                )
+                .await
+            {
+                log::info!("published {:?} to queue", event);
+            } else {
+                log::error!("failed to publish {:?} to queue", event);
+            }
         }
     }
 

@@ -2142,6 +2142,7 @@ version = "0.1.0"
 dependencies = [
  "config",
  "env_logger",
+ "futures-lite",
  "lapin",
  "log",
  "prost",

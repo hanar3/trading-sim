@@ -4,6 +4,7 @@ use engine::{
     self,
     book::OrderBook,
     configuration::get_configuration,
+    event_queue::queue_loop,
     matching_engine::matching_engine_loop,
     messages::trading::{WireMessage, wire_message::Payload},
 };
@@ -77,6 +78,7 @@ async fn main() -> std::io::Result<()> {
 
     let (command_tx, command_rx) = std::sync::mpsc::channel::<Payload>();
     let (event_tx, event_rx) = std::sync::mpsc::channel::<Payload>();
+    let (event_queue_tx, event_queue_rx) = std::sync::mpsc::channel::<Payload>();
 
     let engine_handle = std::thread::spawn(move || {
         log::info!("starting matching engine");
@@ -84,7 +86,11 @@ async fn main() -> std::io::Result<()> {
     });
 
     let distributor_handle = std::thread::spawn(move || {
-        event_distributor_loop(event_rx, vec![]);
+        event_distributor_loop(event_rx, vec![event_queue_tx]);
+    });
+
+    let event_queue_handle = tokio::spawn(async move {
+        queue_loop(event_queue_rx, config.amqp).await;
     });
 
     let listener = TcpListener::bind("127.0.0.1:4000").await?;

@@ -16,8 +16,8 @@ pub struct ApplicationSettings {
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     // Initialise our configuration reader
     let mut settings = config::Config::default();
-    let base_path = std::env::current_dir().expect("Failed to determine the current directory");
-    let config_dir = base_path.join("api-gateway/configuration");
+    let base_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let config_dir = base_path.join("configuration");
 
     // Read the default config
     settings.merge(config::File::from(config_dir.join("base")).required(true))?;

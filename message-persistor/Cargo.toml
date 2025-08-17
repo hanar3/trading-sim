@@ -1,0 +1,31 @@
+[package]
+name = "message-persistor"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+path = "src/main.rs"
+name = "message-persistor"
+
+[lib]
+path="src/lib.rs"
+
+[dependencies]
+lapin = "3.2.0"
+config = "0.11"
+serde = { version = "1.0.162", features = ["derive"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+uuid = { version = "0.8.1", features = ["v4"] }
+secrecy = { version = "0.10.3", features = ["serde"] }
+serde-aux = "3"
+prost = "0.14.1"
+env_logger = "0.11.8"
+log = "0.4.27"
+
+[dependencies.sqlx]
+version = "0.8.6"
+features = ["sqlite", "runtime-tokio", "tls-native-tls"]
+tokio = { version = "1.20.0", features = ["rt", "macros"] }
+
+[build-dependencies]
+prost-build = "0.14.1"

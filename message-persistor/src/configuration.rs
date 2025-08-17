@@ -4,20 +4,8 @@ use serde_aux::field_attributes::deserialize_number_from_string;
 
 #[derive(serde::Deserialize, Debug)]
 pub struct Settings {
-    pub application: ApplicationSettings,
     pub amqp: AmqpSettings,
-}
-
-#[derive(serde::Deserialize, Debug)]
-pub struct ApplicationSettings {
-    pub quote_currency: CurrencySettings,
-    pub base_currency: CurrencySettings,
-}
-
-#[derive(serde::Deserialize, Debug)]
-pub struct CurrencySettings {
-    pub name: String,
-    pub scaling_factor: u8,
+    pub database: DatabaseSettings,
 }
 
 #[derive(serde::Deserialize, Debug)]
@@ -29,6 +17,11 @@ pub struct AmqpSettings {
     pub password: SecretBox<String>,
     pub channel: String,
     pub consumer_tag: String,
+}
+
+#[derive(serde::Deserialize, Debug)]
+pub struct DatabaseSettings {
+    pub file: String,
 }
 
 impl AmqpSettings {

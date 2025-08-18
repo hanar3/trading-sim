@@ -2,10 +2,15 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use crate::{
     book::OrderBook,
+    configuration::ApplicationSettings,
     messages::trading::{OrderAccepted, OrderCancelled, TradeOccurred, wire_message::Payload},
 };
 
-pub fn matching_engine_loop(command_rx: Receiver<Payload>, event_tx: Sender<Payload>) {
+pub fn matching_engine_loop(
+    command_rx: Receiver<Payload>,
+    event_tx: Sender<Payload>,
+    config: ApplicationSettings,
+) {
     let mut book = OrderBook::new();
     log::info!("matching engine started, ready to receive commands");
     for command in command_rx {
@@ -23,6 +28,8 @@ pub fn matching_engine_loop(command_rx: Receiver<Payload>, event_tx: Sender<Payl
                         side: order.side,
                         price: order.price,
                         quantity: order.quantity,
+                        base_currency: config.base_currency.name.clone(),
+                        quote_currency: config.quote_currency.name.clone(),
                     }))
                     .unwrap(); // TODO: handle the error
 

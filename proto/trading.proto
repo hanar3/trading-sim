@@ -15,6 +15,8 @@ message PlaceLimitOrder {
   Side side = 2;
   uint64 price = 3;
   uint64 quantity = 4;
+  string base_currency = 5;
+  string quote_currency = 6;
 }
 
 message CancelOrder {
@@ -27,6 +29,8 @@ message OrderAccepted {
   Side side = 3;
   uint64 price = 4;
   uint64 quantity = 5;
+  string base_currency = 6;
+  string quote_currency = 7;
 }
 
 message OrderCancelled {

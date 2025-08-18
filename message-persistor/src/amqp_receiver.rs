@@ -55,7 +55,8 @@ pub async fn amqp_receiver(pool: SqlitePool, config: AmqpSettings) -> lapin::Res
                                 log::info!("decoded place limit order message: {:?}", order);
                                 let new_order = NewOrder {
                                     order_id: order.order_id as i32,
-                                    symbol: "BTC/USD".to_string(),
+                                    base_currency: order.base_currency,
+                                    quote_currency: order.quote_currency,
                                     side: order.side,
                                     quantity: order.quantity as i32,
                                     price: order.price as i32,
@@ -91,7 +92,8 @@ pub async fn amqp_receiver(pool: SqlitePool, config: AmqpSettings) -> lapin::Res
 #[derive(Debug, Clone)]
 pub struct NewOrder {
     order_id: i32,
-    symbol: String,
+    base_currency: String,
+    quote_currency: String,
     side: i32,
     quantity: i32,
     price: i32,
@@ -100,9 +102,10 @@ pub struct NewOrder {
 pub async fn insert_order(pool: &SqlitePool, new_order: NewOrder) -> Result<(), sqlx::Error> {
     log::info!("inserting order into database {:?}", new_order);
     sqlx::query!(
-        r#"INSERT INTO orders (order_id, symbol, side, quantity, price) VALUES ($1, $2, $3, $4, $5)"#,
+        r#"INSERT INTO orders (order_id, base_currency, quote_currency, side, quantity, price) VALUES ($1, $2, $3, $4, $5, $6)"#,
         new_order.order_id,
-        new_order.symbol,
+        new_order.base_currency,
+        new_order.quote_currency,
         new_order.side,
         new_order.quantity,
         new_order.price,

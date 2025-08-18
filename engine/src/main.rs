@@ -82,7 +82,7 @@ async fn main() -> std::io::Result<()> {
 
     let engine_handle = std::thread::spawn(move || {
         log::info!("starting matching engine");
-        matching_engine_loop(command_rx, event_tx);
+        matching_engine_loop(command_rx, event_tx, config.application);
     });
 
     let distributor_handle = std::thread::spawn(move || {

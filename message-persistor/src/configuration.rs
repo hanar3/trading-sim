@@ -1,7 +1,7 @@
 use config;
 use secrecy::{ExposeSecret, SecretBox};
 use serde_aux::field_attributes::deserialize_number_from_string;
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+use sqlx::sqlite::SqliteConnectOptions;
 
 #[derive(serde::Deserialize, Debug)]
 pub struct Settings {

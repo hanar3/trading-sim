@@ -9,6 +9,8 @@ pub struct PlaceLimitOrderJson {
     pub side: i32,
     pub price: u64,
     pub quantity: u64,
+    pub base_currency: String,
+    pub quote_currency: String,
 }
 
 pub async fn place_limit_order(
@@ -21,12 +23,14 @@ pub async fn place_limit_order(
             side: form.side,
             price: form.price,
             quantity: form.quantity,
+            base_currency: form.base_currency.clone(),
+            quote_currency: form.quote_currency.clone(),
         })),
     };
 
     match command_tx.send(wire_message).await {
         Ok(_) => {
-            log::info!("sent place_limit_order message to engine: {wire_message:?}");
+            log::info!("sent place_limit_order message to engine");
             return HttpResponse::Ok().finish();
         }
         Err(err) => {
@@ -52,7 +56,7 @@ pub async fn cancel_order(
 
     match command_tx.send(wire_message).await {
         Ok(_) => {
-            log::info!("sent cancel order message to engine: {wire_message:?}");
+            log::info!("sent cancel order message to engine");
             return HttpResponse::Ok().finish();
         }
         Err(err) => {

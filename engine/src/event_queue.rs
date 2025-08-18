@@ -42,9 +42,9 @@ pub async fn queue_loop(event_rx: Receiver<Payload>, config: AmqpSettings) -> la
                 )
                 .await
             {
-                log::info!("published {:?} to queue", event);
+                log::info!("published {:?} to queue", wire_message);
             } else {
-                log::error!("failed to publish {:?} to queue", event);
+                log::error!("failed to publish {:?} to queue", wire_message);
             }
         }
     }

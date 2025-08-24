@@ -1,5 +1,3 @@
-use std::sync::mpsc::Sender;
-
 use crate::{
     configuration::AmqpSettings,
     messages::trading::{WireMessage, wire_message::Payload},

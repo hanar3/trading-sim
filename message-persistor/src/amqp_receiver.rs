@@ -5,11 +5,50 @@ use crate::{
 use futures_lite::stream::StreamExt;
 use lapin::{
     self, ConnectionProperties,
-    options::{BasicAckOptions, BasicConsumeOptions},
+    options::{BasicAckOptions, BasicConsumeOptions, BasicNackOptions},
     types::FieldTable,
 };
 use prost::Message;
 use sqlx::SqlitePool;
+use tokio::time::error;
+
+#[derive(Debug)]
+enum HandleError {
+    Decode(prost::DecodeError),
+    Database(sqlx::Error),
+    UnexpectedPayload,
+    MissingPayload,
+}
+
+async fn handle_payload(pool: &SqlitePool, bytes: &[u8]) -> Result<(), HandleError> {
+    let wire_message = WireMessage::decode(bytes).map_err(HandleError::Decode)?;
+
+    match wire_message.payload {
+        Some(Payload::OrderAccepted(order)) => {
+            let new_order = NewOrder {
+                order_id: order.order_id as i32,
+                base_currency: order.base_currency,
+                quote_currency: order.quote_currency,
+                side: order.side,
+                quantity: order.quantity as i32,
+                price: order.price as i32,
+            };
+
+            insert_order(&pool, new_order)
+                .await
+                .map_err(HandleError::Database)?;
+        }
+        Some(_) => {
+            log::error!("Received a valid payload, but unexpected payload type");
+            return Err(HandleError::UnexpectedPayload);
+        }
+        None => {
+            log::error!("Received a message with no payload");
+            return Err(HandleError::MissingPayload);
+        }
+    }
+    Ok(())
+}
 
 pub async fn amqp_receiver(pool: SqlitePool, config: AmqpSettings) -> lapin::Result<()> {
     let conn = lapin::Connection::connect(
@@ -40,46 +79,35 @@ pub async fn amqp_receiver(pool: SqlitePool, config: AmqpSettings) -> lapin::Res
         config.consumer_tag
     );
 
-    while let Some(data) = consumer.next().await {
-        log::info!("received message from queue");
-        if let Ok(delivery) = data {
-            if let Ok(_) = delivery.ack(BasicAckOptions::default()).await {
-                let bytes = prost::bytes::Bytes::from(delivery.data);
+    while let Some(delivery_result) = consumer.next().await {
+        let delivery = match delivery_result {
+            Ok(d) => d,
+            Err(e) => {
+                log::error!("failed to receive message from amqp {}", e);
+                continue;
+            }
+        };
 
-                if let Ok(wire_message) = WireMessage::decode(bytes) {
-                    match wire_message.payload {
-                        Some(payload) => match payload {
-                            Payload::OrderAccepted(order) => {
-                                log::info!("decoded place limit order message: {:?}", order);
-                                let new_order = NewOrder {
-                                    order_id: order.order_id as i32,
-                                    base_currency: order.base_currency,
-                                    quote_currency: order.quote_currency,
-                                    side: order.side,
-                                    quantity: order.quantity as i32,
-                                    price: order.price as i32,
-                                };
-                                if let Err(err) = insert_order(&pool, new_order).await {
-                                    log::error!("failed to persist order {:?}", err)
-                                }
-                            }
-                            _ => {
-                                log::error!(
-                                    "impossible to handle payload, not a valid event: {:?}",
-                                    payload
-                                );
-                            }
-                        },
-
-                        None => {
-                            log::error!("message without a payload received");
-                        }
-                    }
-                } else {
-                    log::error!("failed to decode wire_message");
+        match handle_payload(&pool, &delivery.data).await {
+            Ok(_) => {
+                log::info!("message processed and persisted");
+                if let Err(e) = delivery.ack(BasicAckOptions::default()).await {
+                    log::error!("failed to ack message: {}", e);
                 }
-            } else {
-                log::error!("didn't ack message from queue, not handling message")
+            }
+            Err(err) => {
+                log::error!("failed to handle payload: {:?}, nacking", err);
+                let requeue = matches!(err, HandleError::Database(_));
+
+                if let Err(e) = delivery
+                    .nack(BasicNackOptions {
+                        requeue,
+                        ..Default::default()
+                    })
+                    .await
+                {
+                    log::error!("failed to NACK message {}", e);
+                }
             }
         }
     }

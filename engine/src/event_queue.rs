@@ -24,8 +24,8 @@ pub async fn queue_loop(event_rx: Receiver<Payload>, config: AmqpSettings) -> la
         config.consumer_tag
     );
 
-    let mut buf = Vec::new();
     let mut wire_message = WireMessage::default();
+    let mut buf = Vec::with_capacity(wire_message.encoded_len());
 
     for event in event_rx {
         log::info!("received event from engine: {:?}", event);

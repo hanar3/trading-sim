@@ -6,6 +6,6 @@ CREATE TABLE orders (
     side            INTEGER NOT NULL CHECK (side IN (1, 2)),
     quantity        INTEGER NOT NULL,
     price           INTEGER NOT NULL,
-    FOREIGN KEY (base_currency) REFERENCES currencies(name),
-    FOREIGN KEY (quote_currency) REFERENCES currencies(name)
+    FOREIGN KEY (base_currency) REFERENCES instruments(name),
+    FOREIGN KEY (quote_currency) REFERENCES instruments(name)
 );

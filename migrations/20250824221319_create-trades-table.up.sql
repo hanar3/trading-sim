@@ -4,6 +4,6 @@ CREATE TABLE trades (
   taker_order_id INTEGER NOT NULL,
   maker_order_id INTEGER NOT NULL,
   filled_qty INTEGER,
-  FOREIGN KEY (taker_order_id) REFERENCES orders(orders),
-  FOREIGN KEY (maker_order_id) REFERENCES orders(name)
+  FOREIGN KEY (taker_order_id) REFERENCES orders(order_id),
+  FOREIGN KEY (maker_order_id) REFERENCES orders(order_id)
 );

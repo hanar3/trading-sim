@@ -10,7 +10,6 @@ use lapin::{
 };
 use prost::Message;
 use sqlx::SqlitePool;
-use tokio::time::error;
 
 #[derive(Debug)]
 enum HandleError {
@@ -35,6 +34,17 @@ async fn handle_payload(pool: &SqlitePool, bytes: &[u8]) -> Result<(), HandleErr
             };
 
             insert_order(&pool, new_order)
+                .await
+                .map_err(HandleError::Database)?;
+        }
+        Some(Payload::TradeOccurred(trade)) => {
+            let new_trade = NewTrade {
+                maker_order_id: trade.taker_order_id as i32,
+                taker_order_id: trade.maker_order_id as i32,
+                filled_qty: trade.quantity as i32,
+            };
+
+            insert_trade(&pool, new_trade)
                 .await
                 .map_err(HandleError::Database)?;
         }
@@ -111,6 +121,31 @@ pub async fn amqp_receiver(pool: SqlitePool, config: AmqpSettings) -> lapin::Res
             }
         }
     }
+
+    Ok(())
+}
+
+#[derive(Debug, Clone)]
+pub struct NewTrade {
+    maker_order_id: i32,
+    taker_order_id: i32,
+    filled_qty: i32,
+}
+
+pub async fn insert_trade(pool: &SqlitePool, new_trade: NewTrade) -> Result<(), sqlx::Error> {
+    log::info!("inserting trade into database {:?}", new_trade);
+    sqlx::query!(
+        r#"INSERT INTO trades (maker_order_id, taker_order_id, filled_qty) VALUES ($1, $2, $3)"#,
+        new_trade.maker_order_id,
+        new_trade.taker_order_id,
+        new_trade.filled_qty
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| {
+        log::error!("failed to execute query: {:?}", e);
+        e
+    })?;
 
     Ok(())
 }

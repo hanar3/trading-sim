@@ -16,18 +16,19 @@ book, and is not restricted by any balances.
 - **proto**: describes protobuf messages.
 
 ## Future/Roadmap
-[] Frontend
-  [] Placing orders
-  [] Candle charts
-[] Backend 
-  [] Place market order
-  [x] Place limit order
-  [x] Cancel limit order
-  [x] Modify limit order
-  [x] Benchkmarks
-  [] Serve candles
-[] Bots to spam orders and grow the order book?
-[] Docker to spin up multiple engine instances + service discovery to talk to them?
+- [ ] Frontend
+  -  [ ] Placing orders
+  - [ ] Candle charts
+  
+- [ ] Backend 
+  - [ ] Place market order
+  - [x] Place limit order
+  - [x] Cancel limit order
+  - [x] Modify limit order
+  - [x] Benchkmarks
+  - [ ] Serve candles
+- [ ] Bots to spam orders and grow the order book?
+- [ ] Docker to spin up multiple engine instances + service discovery to talk to them?
 
 ## Last benchmark (Sept, 22nd 2025)
 

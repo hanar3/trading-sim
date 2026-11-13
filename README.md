@@ -117,6 +117,7 @@ Potential improvements include:
 - Multi-engine deployment and service discovery
 
 ## Order book design
+```mermaid
 flowchart TB
     OB["OrderBook"]
 
@@ -144,9 +145,11 @@ flowchart TB
     INDEX -.-> BO2
     INDEX -.-> AO1
     INDEX -.-> AO2
-    
+```
+
 The order book maintains separate bid and ask sides, each organized by price. Each price level contains a FIFO queue, ensuring orders at the same price are matched in arrival order. A separate hash map provides direct access to orders by ID, allowing efficient cancellation without scanning the entire book.
 
+```mermaid
 flowchart TD
     START["Incoming limit order"] --> BEST["Get best opposing price level"]
     BEST --> CHECK{"Does price cross?"}
@@ -164,6 +167,7 @@ flowchart TD
     EMPTY -->|Yes| BEST
 
     REST --> DONE
+```
     
 ## Running the Project
 

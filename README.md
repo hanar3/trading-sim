@@ -116,6 +116,55 @@ Potential improvements include:
 - A frontend for interacting with the engine
 - Multi-engine deployment and service discovery
 
+## Order book design
+flowchart TB
+    OB["OrderBook"]
+
+    OB --> BIDS["Bids: BTreeMap"]
+    OB --> ASKS["Asks: BTreeMap"]
+    OB --> INDEX["Orders: HashMap<OrderId, OrderHandle>"]
+
+    BIDS --> B1["Price: 102"]
+    BIDS --> B2["Price: 101"]
+    BIDS --> B3["Price: 100"]
+
+    ASKS --> A1["Price: 103"]
+    ASKS --> A2["Price: 104"]
+    ASKS --> A3["Price: 105"]
+
+    B1 --> BQ["VecDeque"]
+    BQ --> BO1["Order #1"]
+    BQ --> BO2["Order #2"]
+
+    A1 --> AQ["VecDeque"]
+    AQ --> AO1["Order #3"]
+    AQ --> AO2["Order #4"]
+
+    INDEX -.-> BO1
+    INDEX -.-> BO2
+    INDEX -.-> AO1
+    INDEX -.-> AO2
+    
+The order book maintains separate bid and ask sides, each organized by price. Each price level contains a FIFO queue, ensuring orders at the same price are matched in arrival order. A separate hash map provides direct access to orders by ID, allowing efficient cancellation without scanning the entire book.
+
+flowchart TD
+    START["Incoming limit order"] --> BEST["Get best opposing price level"]
+    BEST --> CHECK{"Does price cross?"}
+
+    CHECK -->|No| REST["Add remaining quantity to book"]
+    CHECK -->|Yes| FIFO["Get oldest order at price level"]
+
+    FIFO --> FILL["Execute trade"]
+    FILL --> REMAIN{"Incoming order filled?"}
+
+    REMAIN -->|Yes| DONE["Matching complete"]
+    REMAIN -->|No| EMPTY{"Price level empty?"}
+
+    EMPTY -->|No| FIFO
+    EMPTY -->|Yes| BEST
+
+    REST --> DONE
+    
 ## Running the Project
 
 The project is organized as a Cargo workspace:

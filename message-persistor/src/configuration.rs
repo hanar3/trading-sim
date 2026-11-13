@@ -29,7 +29,9 @@ impl DatabaseSettings {
     pub fn get_config(&self) -> SqliteConnectOptions {
         let base_path = std::env::current_dir().expect("Failed to determine the current directory");
         let db_file = base_path.join(&self.file);
-        return SqliteConnectOptions::default().filename(db_file);
+        SqliteConnectOptions::default()
+            .filename(db_file)
+            .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
     }
 }
 

@@ -1,10 +1,8 @@
-#![allow(unused)]
-use crate::{book, messages::trading::Side};
+use crate::messages::trading::Side;
 use std::{
     cell::RefCell,
     collections::{BTreeMap, HashMap, VecDeque},
     rc::Rc,
-    time::Duration,
 };
 
 type Price = u64;
@@ -57,10 +55,13 @@ impl OrderBook {
         }
     }
 
-    fn get_next_order_id(&mut self) -> OrderId {
+    fn get_next_order_id(&mut self) -> Result<OrderId, &'static str> {
+        if self.next_order_id > i64::MAX as u64 {
+            return Err("order ID range exhausted");
+        }
         let id = self.next_order_id;
         self.next_order_id += 1;
-        id
+        Ok(id)
     }
 
     pub fn add_limit_order(
@@ -68,10 +69,16 @@ impl OrderBook {
         side: Side,
         price: Price,
         quantity: Quantity,
-    ) -> (u64, &Vec<Trade>) {
-        let order_id = self.get_next_order_id();
+    ) -> Result<(u64, &Vec<Trade>), &'static str> {
+        if side == Side::Unspecified {
+            return Err("side must be buy or sell");
+        }
+        if price == 0 || quantity == 0 || price > i64::MAX as u64 || quantity > i64::MAX as u64 {
+            return Err("price and quantity must be positive signed 64-bit integers");
+        }
+        let order_id = self.get_next_order_id()?;
         log::debug!("next order id > {}", order_id);
-        let mut order_handle = Rc::new(RefCell::new(Order {
+        let order_handle = Rc::new(RefCell::new(Order {
             id: order_id,
             side,
             price,
@@ -97,7 +104,7 @@ impl OrderBook {
             self.orders.insert(order_id, Rc::clone(&order_handle));
         }
 
-        (order_id, &self.trades_buffer)
+        Ok((order_id, &self.trades_buffer))
     }
 
     pub fn cancel_order(&mut self, order_id: OrderId) -> Result<(), &'static str> {
@@ -117,7 +124,7 @@ impl OrderBook {
         Ok(())
     }
 
-    pub fn match_order(&mut self, taker_order: &mut Order) {
+    fn match_order(&mut self, taker_order: &mut Order) {
         log::debug!("matching order # = {}", taker_order.id);
         self.trades_buffer.clear();
 
@@ -234,21 +241,10 @@ impl OrderBook {
             taker_order.id
         );
     }
+}
 
-    /// Adds a new market order to the book.
-    /// Market orders are filled immediately and are not added to the book.
-    pub fn add_market_order(&mut self, side: Side, quantity: Quantity) -> &Vec<Trade> {
-        let order_id = self.get_next_order_id();
-        // A market order doesn't have a price, but we can model it
-        // with a dummy price for the struct.
-        let mut order = Order {
-            id: order_id,
-            side,
-            price: 0,
-            quantity,
-            status: OrderStatus::Open,
-        };
-        self.match_order(&mut order);
-        &self.trades_buffer
+impl Default for OrderBook {
+    fn default() -> Self {
+        Self::new()
     }
 }

@@ -2,11 +2,17 @@ use crate::{
     configuration::AmqpSettings,
     messages::trading::{WireMessage, wire_message::Payload},
 };
-use lapin::{self, BasicProperties, ConnectionProperties, options::BasicPublishOptions};
+use lapin::{
+    self, BasicProperties, ConnectionProperties,
+    options::{BasicPublishOptions, ConfirmSelectOptions, QueueDeclareOptions},
+};
 use prost::Message;
-use std::sync::mpsc::Receiver;
+use tokio::sync::mpsc::Receiver;
 
-pub async fn queue_loop(event_rx: Receiver<Payload>, config: AmqpSettings) -> lapin::Result<()> {
+pub async fn queue_loop(
+    mut event_rx: Receiver<Payload>,
+    config: AmqpSettings,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let conn = lapin::Connection::connect(
         config.connection_string().as_str(),
         ConnectionProperties::default(),
@@ -16,6 +22,19 @@ pub async fn queue_loop(event_rx: Receiver<Payload>, config: AmqpSettings) -> la
     log::info!("Conncted to amqp: {}", config.host);
 
     let channel = conn.create_channel().await?;
+    channel
+        .queue_declare(
+            &config.channel,
+            QueueDeclareOptions {
+                durable: true,
+                ..Default::default()
+            },
+            Default::default(),
+        )
+        .await?;
+    channel
+        .confirm_select(ConfirmSelectOptions::default())
+        .await?;
     log::info!("Created amqp channel");
 
     log::info!(
@@ -24,30 +43,34 @@ pub async fn queue_loop(event_rx: Receiver<Payload>, config: AmqpSettings) -> la
         config.consumer_tag
     );
 
-    let mut wire_message = WireMessage::default();
-    let mut buf = Vec::with_capacity(wire_message.encoded_len());
-
-    for event in event_rx {
-        log::info!("received event from engine: {:?}", event);
-        buf.clear();
-        wire_message.payload = Some(event);
-        if let Ok(_) = wire_message.encode(&mut buf) {
-            if let Ok(_) = channel
-                .basic_publish(
-                    "",
-                    &config.channel,
-                    BasicPublishOptions::default(),
-                    &buf,
-                    BasicProperties::default(),
-                )
-                .await
-            {
-                log::info!("published {:?} to queue", wire_message);
-            } else {
-                log::error!("failed to publish {:?} to queue", wire_message);
-            }
+    while let Some(event) = event_rx.recv().await {
+        let wire_message = WireMessage {
+            payload: Some(event),
+        };
+        let bytes = wire_message.encode_to_vec();
+        let confirmation = channel
+            .basic_publish(
+                "",
+                &config.channel,
+                BasicPublishOptions {
+                    mandatory: true,
+                    ..Default::default()
+                },
+                &bytes,
+                BasicProperties::default()
+                    .with_delivery_mode(2)
+                    .with_message_id(uuid::Uuid::new_v4().to_string().into()),
+            )
+            .await?
+            .await?;
+        if !matches!(
+            confirmation,
+            lapin::publisher_confirm::Confirmation::Ack(None)
+        ) {
+            log::error!("broker rejected or returned event: {confirmation:?}");
+            // Do not silently continue after losing an event.
+            return Err(std::io::Error::other("event was not confirmed and routed").into());
         }
     }
-
     Ok(())
 }

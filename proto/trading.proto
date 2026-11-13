@@ -17,6 +17,7 @@ message PlaceLimitOrder {
   uint64 quantity = 4;
   string base_currency = 5;
   string quote_currency = 6;
+  string client_order_id = 7;
 }
 
 message CancelOrder {
@@ -31,6 +32,7 @@ message OrderAccepted {
   uint64 quantity = 5;
   string base_currency = 6;
   string quote_currency = 7;
+  string client_order_id = 8;
 }
 
 message OrderCancelled {

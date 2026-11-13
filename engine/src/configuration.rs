@@ -10,6 +10,13 @@ pub struct Settings {
 
 #[derive(serde::Deserialize, Debug)]
 pub struct ApplicationSettings {
+    #[serde(default = "default_host")]
+    pub host: String,
+    #[serde(
+        default = "default_port",
+        deserialize_with = "deserialize_number_from_string"
+    )]
+    pub port: u16,
     pub quote_currency: CurrencySettings,
     pub base_currency: CurrencySettings,
 }
@@ -90,4 +97,11 @@ impl TryFrom<String> for Environment {
             )),
         }
     }
+}
+
+fn default_host() -> String {
+    "127.0.0.1".into()
+}
+fn default_port() -> u16 {
+    4000
 }

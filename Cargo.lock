@@ -392,6 +392,7 @@ dependencies = [
  "claim",
  "config",
  "env_logger",
+ "futures-util",
  "log",
  "once_cell",
  "prost",
@@ -400,7 +401,9 @@ dependencies = [
  "secrecy 0.8.0",
  "serde 1.0.219",
  "serde-aux 3.1.0",
+ "serde_json",
  "socket2 0.6.0",
+ "sqlx",
  "tokio",
  "tracing",
  "tracing-actix-web",
@@ -1264,6 +1267,7 @@ dependencies = [
  "serde-aux 4.7.0",
  "tokio",
  "tracing",
+ "uuid 0.8.2",
 ]
 
 [[package]]

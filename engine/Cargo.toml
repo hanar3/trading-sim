@@ -15,6 +15,7 @@ name="orderbook_benchmark"
 harness = false
 
 [dependencies]
+uuid = { version = "0.8.1", features = ["v4"] }
 config = "0.11"
 env_logger = "0.11.8"
 futures-lite = "2.6.1"

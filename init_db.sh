@@ -1,15 +1,6 @@
-
-set -x
-set -eo pipefail
-if ![ -x "$(command -v sqlx)"]; then
-	echo >&2 "sqlx is not installed, install it with cargo install sqlx-cli"
-	exit 1
-fi
-
-DB_FILE=db.sqlite
-
-export DATABASE_URL=sqlite://$DB_FILE
-echo "Using: $DATABASE_URL"
-
-sqlx database create
-sqlx migrate run
+#!/usr/bin/env bash
+set -euo pipefail
+project_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$project_root"
+export APP_DATABASE__FILE="${APP_DATABASE__FILE:-$project_root/message-persistor/db.sqlite}"
+cargo run --locked -p message-persistor -- --migrate-only

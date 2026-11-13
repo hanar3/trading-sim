@@ -4,24 +4,47 @@ A Rust-based trading engine built around a price-time priority order book, with 
 
 The project explores the architecture and engineering challenges behind a trading system: order matching, efficient data structures, inter-service communication, event distribution, and persistence.
 
+## Try the trading workspace
+
+```sh
+npm ci
+npm run dev -- --seed
+```
+
+Open [the local workspace](http://127.0.0.1:5173). This starts all services with an
+isolated database/queue and seeds actual simulated liquidity through the API.
+Omit `--seed` for an empty book. Requires Node 24, Rust 1.92+, protoc, and Docker.
+
+![Trading workspace](docs/trading-workspace.jpg)
+
+Order tracking adds only a correlation ID echoed in the existing acceptance event;
+matching does not build UI snapshots. A gateway-side projection reads the
+existing persisted event log and shares snapshots over SSE at up to 10 Hz. Browser
+count and slow rendering do not add snapshot work or locks to the matching thread.
+See [the frontend guide](web/README.md) for the data path, consistency boundaries,
+and commands for running individual services.
+
 ## Architecture
 
-The system is divided into three independent processes:
+The monorepo contains three Rust services and a React browser client:
 
 ```mermaid
 flowchart TD
-    A[HTTP Client] --> B[API Gateway]
+    A[React Browser Client] -->|HTTP commands| B[API Gateway]
     B -->|TCP + Protobuf| C[Matching Engine]
     C -->|Events| D[RabbitMQ]
     D --> E[Message Persistor]
-    E --> F[(SQLite)]
+    E --> F[(SQLite WAL)]
+    F -->|Incremental read model| B
+    B -->|SSE snapshots| A
 ```
 
 ### Components
 
 | Component | Responsibility | Technologies |
 |---|---|---|
-| `api-gateway` | Accepts HTTP requests and forwards commands to the matching engine | Actix Web, Tokio |
+| `web` | Limit order entry, live depth, open orders, and recent fills | React, TanStack Query, shadcn/ui, Vite |
+| `api-gateway` | Forwards commands and serves an independent persisted-event market projection | Actix Web, Tokio, SQLx, SSE |
 | `engine` | Maintains the order book, processes orders, and publishes events | Rust, Tokio, RabbitMQ |
 | `message-persistor` | Consumes events and persists trading data | RabbitMQ, SQLx, SQLite |
 
@@ -70,28 +93,50 @@ The message persistor consumes these events and stores the corresponding records
 
 This separation keeps persistence concerns independent of the matching engine.
 
+## Correctness and reliability
+
+The matching loop has one writer on a dedicated thread. Tests cover price priority,
+FIFO, maker-price execution, partial fills, quantity conservation, and cancellation
+at every queue position on both sides. A deterministic 4,000-command workload is
+also checked against a separate vector-based reference model.
+
+- Invalid sides, zero values, unsupported pairs, and values outside the supported
+  signed 64-bit range are rejected before matching. The gateway limits currency
+  symbols to 32 bytes so generated commands fit the TCP frame limit.
+- TCP commands use a four-byte big-endian length prefix, capped at 4 KiB.
+  Malformed frames close their connection rather than panicking.
+- Engine command and event queues each hold at most 1,024 messages; the gateway
+  holds at most 10,000 commands and returns `503` when its queue is full.
+- Both AMQP services declare the durable queue. Events have UUID message IDs,
+  persistent delivery mode, mandatory routing, and publisher confirms.
+- The persistor commits each event receipt and its database change together.
+  Redelivery with the same ID and bytes is a no-op; conflicting reuse is rejected.
+- SQLite stores execution price and correct maker/taker IDs using checked `i64`
+  conversions. Cancellation sets an explicit flag on the accepted-order record.
+
+These are bounded, specific guarantees. The book and pending commands/events are
+in memory. There is no durable command journal, book replay, or automatic engine
+recovery. See [LOCAL_RUN.md](LOCAL_RUN.md) for the restart boundary and limitations.
+
 ## Performance
 
-The order book is benchmarked using [Criterion.rs](https://github.com/bheisler/criterion.rs).
+The Criterion suite measures no-match insertion, one-order matching, walking five
+price levels, partial fills, and cancellation. Each fixture has 1,000 bid levels
+and 1,000 ask levels. `iter_batched_ref` excludes fixture creation and book
+destruction from the timed operation.
 
-The benchmark suite covers three scenarios:
-
-| Benchmark | Scenario | Recorded time |
-|---|---|---:|
-| `add_limit_order_no_match` | Add an order without matching existing liquidity | 111.37 µs |
-| `add_limit_order_full_match_one` | Fully match against one existing order | 111.31 µs |
-| `add_limit_order_walk_the_book` | Consume liquidity across multiple price levels | 116.27 µs |
-
-These are previously recorded results from September 22, 2025, and should be treated as historical measurements rather than current performance guarantees.
-
-Run the benchmarks with:
-
-```bash
+```sh
 cargo bench -p engine
 ```
 
+See [BENCHMARKS.md](BENCHMARKS.md) for the environment, results, and methodology.
+These are in-process order-book measurements; they do not measure HTTP, TCP,
+RabbitMQ, or SQLite latency. Earlier README figures included book destruction
+and are not comparable to the current benchmark methodology.
+
 ## Technology Stack
 
+- **Frontend:** React, TypeScript, TanStack Query, shadcn/ui, Tailwind CSS
 - **Language:** Rust
 - **Async runtime:** Tokio
 - **HTTP:** Actix Web
@@ -109,11 +154,11 @@ Potential improvements include:
 - Market order support
 - Order modification
 - Expanded matching-engine test coverage
-- Idempotent event processing
-- Backpressure and bounded event channels
+- Durable command journaling and deterministic book replay
+- Dead-letter handling and operational metrics
 - Improved benchmark coverage and performance analysis
 - Market data distribution and candle generation
-- A frontend for interacting with the engine
+- Correlated command acknowledgments and order-status queries
 - Multi-engine deployment and service discovery
 
 ## Order book design
@@ -171,18 +216,24 @@ flowchart TD
     
 ## Running the Project
 
-The project is organized as a Cargo workspace:
+Prerequisites: Rust 1.92+, `protoc`, and Docker Desktop/Engine. On macOS, install
+`protoc` with `brew install protobuf`.
 
-```text
-trading-sim/
-├── api-gateway/
-├── engine/
-├── message-persistor/
-├── migrations/
-├── proto/
-└── Cargo.toml
+```sh
+cargo build --workspace --locked
+cargo test --workspace --locked
+docker compose up -d
+python3 scripts/smoke_test.py
 ```
 
-Each service has its own configuration directory. RabbitMQ is required for event publishing and consumption.
+The automated demo creates an isolated queue and temporary database, runs all
+three services on available ports, and verifies a limit trade, cancellation,
+large integer values, malformed-input isolation, duplicate-event handling, and a
+persistor restart. It cleans up its processes, queue, and database afterward.
 
-See the configuration files in each service for the required environment-specific settings.
+For interactive startup, HTTP examples, and database upgrade notes, see
+[LOCAL_RUN.md](LOCAL_RUN.md). The persistor automatically creates and migrates a
+fresh database; compilation requires no database or `DATABASE_URL`.
+
+CI runs formatting, tests, Clippy, the end-to-end demo with RabbitMQ, and benchmark
+compilation. Market orders and order modification remain unsupported.

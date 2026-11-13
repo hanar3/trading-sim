@@ -1,3 +1,9 @@
 target
 .env
 *.sqlite
+node_modules/
+web/dist/
+*.tsbuildinfo
+.local/
+*.sqlite-shm
+*.sqlite-wal

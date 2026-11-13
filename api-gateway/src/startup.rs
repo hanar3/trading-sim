@@ -12,13 +12,25 @@ use tracing_actix_web::TracingLogger;
 pub fn run_http(
     listener: TcpListener,
     command_tx: tokio::sync::mpsc::Sender<WireMessage>,
+    market_feed: crate::market::MarketFeed,
+    progress_store: crate::order_progress::ProgressStore,
 ) -> Result<Server, std::io::Error> {
     let sender = web::Data::new(command_tx);
+    let progress_store = web::Data::new(progress_store);
+    let market_feed = web::Data::new(market_feed);
     let server = HttpServer::new(move || {
         App::new()
             .wrap(TracingLogger::default())
             .route("/orders", web::post().to(order::place_limit_order))
             .route("/orders", web::delete().to(order::cancel_order))
+            .route(
+                "/orders/status/{client_id}",
+                web::get().to(crate::order_progress::get),
+            )
+            .app_data(progress_store.clone())
+            .route("/market", web::get().to(crate::market::snapshot))
+            .route("/market/stream", web::get().to(crate::market::stream))
+            .app_data(market_feed.clone())
             .app_data(sender.clone())
     })
     .listen(listener)?
@@ -40,7 +52,7 @@ fn keepalive(stream: TcpStream) -> TcpStream {
     socket.set_tcp_keepalive(&keepalive).unwrap();
     let stream: std::net::TcpStream = socket.into();
     let stream: tokio::net::TcpStream = tokio::net::TcpStream::from_std(stream).unwrap();
-    return stream;
+    stream
 }
 
 pub async fn engine_connection_manager(

@@ -25,5 +25,19 @@ async fn main() -> std::io::Result<()> {
         ),
     ));
 
-    api_gateway::startup::run_http(http_server_listener, command_tx)?.await
+    let progress_store =
+        api_gateway::order_progress::ProgressStore::new(configuration.database.file.clone());
+    let market_feed = api_gateway::market::MarketFeed::new(&configuration.market);
+    tokio::spawn(
+        market_feed
+            .clone()
+            .run(configuration.database.file, configuration.market),
+    );
+    api_gateway::startup::run_http(
+        http_server_listener,
+        command_tx,
+        market_feed,
+        progress_store,
+    )?
+    .await
 }

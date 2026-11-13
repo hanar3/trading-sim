@@ -1,0 +1,53 @@
+Benchmarking add_limit_order_no_match
+Benchmarking add_limit_order_no_match: Warming up for 3.0000 s
+Benchmarking add_limit_order_no_match: Collecting 100 samples in estimated 5.7856 s (30k iterations)
+Benchmarking add_limit_order_no_match: Analyzing
+add_limit_order_no_match
+                        time:   [41.166 ns 41.423 ns 41.675 ns]
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) low mild
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+
+Benchmarking add_limit_order_full_match_one
+Benchmarking add_limit_order_full_match_one: Warming up for 3.0000 s
+Benchmarking add_limit_order_full_match_one: Collecting 100 samples in estimated 5.9056 s (30k iterations)
+Benchmarking add_limit_order_full_match_one: Analyzing
+add_limit_order_full_match_one
+                        time:   [130.94 ns 133.59 ns 136.54 ns]
+Found 9 outliers among 100 measurements (9.00%)
+  1 (1.00%) low mild
+  5 (5.00%) high mild
+  3 (3.00%) high severe
+
+Benchmarking add_limit_order_walk_the_book
+Benchmarking add_limit_order_walk_the_book: Warming up for 3.0000 s
+Benchmarking add_limit_order_walk_the_book: Collecting 100 samples in estimated 5.8664 s (30k iterations)
+Benchmarking add_limit_order_walk_the_book: Analyzing
+add_limit_order_walk_the_book
+                        time:   [409.99 ns 417.74 ns 428.66 ns]
+Found 6 outliers among 100 measurements (6.00%)
+  4 (4.00%) high mild
+  2 (2.00%) high severe
+
+Benchmarking add_limit_order_partial_fill
+Benchmarking add_limit_order_partial_fill: Warming up for 3.0000 s
+Benchmarking add_limit_order_partial_fill: Collecting 100 samples in estimated 5.9190 s (30k iterations)
+Benchmarking add_limit_order_partial_fill: Analyzing
+add_limit_order_partial_fill
+                        time:   [50.970 ns 52.287 ns 54.073 ns]
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high severe
+
+Benchmarking cancel_limit_order
+Benchmarking cancel_limit_order: Warming up for 3.0000 s
+Benchmarking cancel_limit_order: Collecting 100 samples in estimated 5.9195 s (30k iterations)
+Benchmarking cancel_limit_order: Analyzing
+cancel_limit_order      time:   [27.294 ns 27.984 ns 28.931 ns]
+Found 10 outliers among 100 measurements (10.00%)
+  2 (2.00%) low severe
+  3 (3.00%) low mild
+  1 (1.00%) high mild
+  4 (4.00%) high severe
+

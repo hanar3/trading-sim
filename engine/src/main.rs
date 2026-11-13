@@ -1,67 +1,23 @@
-#![allow(unused)]
-
 use engine::{
-    self,
-    book::OrderBook,
-    configuration::get_configuration,
-    event_queue::queue_loop,
-    matching_engine::matching_engine_loop,
-    messages::trading::{WireMessage, wire_message::Payload},
-};
-use futures_lite::stream::StreamExt;
-
-use log;
-use prost::Message;
-use std::{
-    collections::{BTreeMap, VecDeque},
-    sync::mpsc::{Receiver, Sender},
+    configuration::get_configuration, event_queue::queue_loop,
+    matching_engine::matching_engine_loop, messages::trading::wire_message::Payload,
 };
 use tokio::{
-    io::{AsyncReadExt, BufReader},
+    io::BufReader,
     net::{TcpListener, TcpStream},
 };
 
-use tracing;
-
-fn event_distributor_loop(event_rx: Receiver<Payload>, consumers: Vec<Sender<Payload>>) {
-    for event in event_rx {
-        log::info!(
-            "broadcasting event: {:?} to {} consumers",
-            event,
-            consumers.len()
-        );
-        for consumer_tx in &consumers {
-            consumer_tx.send(event.clone()).unwrap();
-        }
-    }
-}
-
-async fn handle_connection(stream: TcpStream, command_tx: Sender<Payload>) {
+async fn handle_connection(stream: TcpStream, command_tx: tokio::sync::mpsc::Sender<Payload>) {
     let mut reader = BufReader::new(stream);
-    log::info!("new client connected");
-
     loop {
-        match reader.read_u32().await {
-            Ok(len) => {
-                let mut buf = vec![0; len as usize];
-                if let Err(e) = reader.read_exact(&mut buf).await {
-                    log::error!("failed to read message payload {:?}", e);
-                } else {
-                    match WireMessage::decode(buf.as_slice()) {
-                        Ok(msg) => {
-                            let payload = msg.payload.unwrap();
-                            if command_tx.send(payload).is_err() {
-                                log::error!("failed to send to engine");
-                            }
-                        }
-                        Err(e) => {
-                            log::error!("failed to decode WireMessage, {:?}", e);
-                        }
-                    }
+        match engine::transport::read_command(&mut reader).await {
+            Ok(payload) => {
+                if command_tx.send(payload).await.is_err() {
+                    break;
                 }
             }
-            Err(e) => {
-                log::error!("client disconnected {:?}, closing connection", e);
+            Err(error) => {
+                log::debug!("closing command connection: {error}");
                 break;
             }
         }
@@ -76,24 +32,23 @@ async fn main() -> std::io::Result<()> {
 
     let config = get_configuration().expect("Failed to read config file");
 
-    let (command_tx, command_rx) = std::sync::mpsc::channel::<Payload>();
-    let (event_tx, event_rx) = std::sync::mpsc::channel::<Payload>();
-    let (event_queue_tx, event_queue_rx) = std::sync::mpsc::channel::<Payload>();
+    let (command_tx, command_rx) = tokio::sync::mpsc::channel::<Payload>(1024);
+    let (event_tx, event_rx) = tokio::sync::mpsc::channel::<Payload>(1024);
+    let listener =
+        TcpListener::bind((config.application.host.as_str(), config.application.port)).await?;
 
-    let engine_handle = std::thread::spawn(move || {
+    let _engine_handle = std::thread::spawn(move || {
         log::info!("starting matching engine");
         matching_engine_loop(command_rx, event_tx, config.application);
     });
 
-    let distributor_handle = std::thread::spawn(move || {
-        event_distributor_loop(event_rx, vec![event_queue_tx]);
+    let _event_queue_handle = tokio::spawn(async move {
+        if let Err(error) = queue_loop(event_rx, config.amqp).await {
+            log::error!("event publisher failed: {error}; stopping engine");
+            std::process::exit(1);
+        }
     });
 
-    let event_queue_handle = tokio::spawn(async move {
-        queue_loop(event_queue_rx, config.amqp).await;
-    });
-
-    let listener = TcpListener::bind("127.0.0.1:4000").await?;
     log::info!("started async io listener on main thread");
     loop {
         // Accept a new connection.
@@ -108,6 +63,4 @@ async fn main() -> std::io::Result<()> {
             handle_connection(socket, command_tx_clone).await;
         });
     }
-
-    Ok(())
 }

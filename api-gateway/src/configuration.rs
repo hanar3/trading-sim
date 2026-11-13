@@ -4,6 +4,10 @@ use serde_aux::field_attributes::deserialize_number_from_string;
 pub struct Settings {
     pub application: ApplicationSettings,
     pub engine: ApplicationSettings,
+    #[serde(default)]
+    pub database: crate::market::DatabaseSettings,
+    #[serde(default)]
+    pub market: crate::market::MarketSettings,
 }
 
 #[derive(serde::Deserialize)]

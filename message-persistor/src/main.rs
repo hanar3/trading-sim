@@ -9,8 +9,16 @@ async fn main() -> std::io::Result<()> {
     let configuration = message_persistor::configuration::get_configuration()
         .expect("failed to get configuration from file");
 
-    let connection_pool =
-        SqlitePoolOptions::new().connect_lazy_with(configuration.database.get_config());
+    let connection_pool = SqlitePoolOptions::new()
+        .connect_with(configuration.database.get_config().create_if_missing(true))
+        .await
+        .expect("failed to open database");
+    message_persistor::migrate(&connection_pool)
+        .await
+        .expect("failed to migrate database");
+    if std::env::args().any(|arg| arg == "--migrate-only") {
+        return Ok(());
+    }
     amqp_receiver::amqp_receiver(connection_pool, configuration.amqp)
         .await
         .expect("failed to establish queue loop");
